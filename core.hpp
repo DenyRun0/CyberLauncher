@@ -219,7 +219,7 @@ inline std::string findJava(int major) {
 
 // ---------- Встановлення і запуск ----------
 
-inline void installAndRun(const VersionInfo& ver, const std::string& player, Status& st) {
+inline void installAndRun(const VersionInfo& ver, const std::string& player, int ramGb, Status& st) {
     fs::path root = rootDir();
     fs::path vdir = root / "versions" / ver.id;
     fs::path vjson = vdir / (ver.id + ".json");
@@ -332,7 +332,7 @@ inline void installAndRun(const VersionInfo& ver, const std::string& player, Sta
         {"classpath", cpStr},
     };
 
-    std::vector<std::string> raw = {javaBin, "-Xmx2G"};
+    std::vector<std::string> raw = {javaBin, "-Xmx" + std::to_string(ramGb) + "G"};
     collectArgs(vj["arguments"]["jvm"], raw);
     raw.push_back(vj["mainClass"].get<std::string>());
     collectArgs(vj["arguments"]["game"], raw);
