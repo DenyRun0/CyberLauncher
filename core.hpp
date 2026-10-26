@@ -1,11 +1,25 @@
 #pragma once
 // Логіка лаунчера: список версій, завантаження файлів, запуск Java.
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#endif
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <fcntl.h>
-#include <mach-o/dyld.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+#endif
 #include <atomic>
 #include <cctype>
 #include <cstdint>
@@ -30,16 +44,77 @@ using json = nlohmann::json;
 
 inline std::atomic<bool> g_cancel{false};
 
-// Папка програми: <проєкт>/build/launcher -> <проєкт>
-inline fs::path projectDir() {
-#ifdef LAUNCHER_ROOT
-    return fs::path(LAUNCHER_ROOT);  // папка проєкту, задана в CMakeLists.txt
+// ---------- Платформа ----------
+
+#if defined(_WIN32)
+inline constexpr bool kIsWindows = true;
+inline constexpr const char* kOsName = "windows";  // назва ОС у правилах Mojang
+inline constexpr char kPathSep = ';';              // роздільник classpath
+#elif defined(__APPLE__)
+inline constexpr bool kIsWindows = false;
+inline constexpr const char* kOsName = "osx";
+inline constexpr char kPathSep = ':';
 #else
+inline constexpr bool kIsWindows = false;
+inline constexpr const char* kOsName = "linux";
+inline constexpr char kPathSep = ':';
+#endif
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+inline constexpr const char* kArch = "arm64";
+#elif defined(__x86_64__) || defined(_M_X64)
+inline constexpr const char* kArch = "x86_64";
+#else
+inline constexpr const char* kArch = "x86";
+#endif
+
+// Шлях у UTF-8 (на Windows path::string() дає локальну кодову сторінку, а Java чекає UTF-8)
+inline std::string u8(const std::filesystem::path& p) {
+    auto s = p.u8string();  // std::string у C++17, std::u8string у C++20
+    return std::string(s.begin(), s.end());
+}
+
+// Папка, де лежить тека game.
+//  1) Збірка на машині розробника: LAUNCHER_ROOT з CMake (діє, лише якщо ця тека існує тут).
+//  2) Windows (zip з релізу): тека з exe, тож усе портативне.
+//  3) macOS (.app): ~/Library/Application Support/CyberLauncher (поруч з .app писати не можна).
+inline std::filesystem::path projectDir() {
+    namespace sfs = std::filesystem;
+#ifdef LAUNCHER_ROOT
+    {
+        std::error_code ec;
+        sfs::path r(LAUNCHER_ROOT);
+        if (sfs::exists(r / "CMakeLists.txt", ec)) return r;
+    }
+#endif
+#if defined(_WIN32)
+    std::wstring buf(32768, L'\0');
+    DWORD n = GetModuleFileNameW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
+    if (n == 0 || n >= buf.size()) return sfs::current_path();
+    buf.resize(n);
+    sfs::path dir = sfs::path(buf).parent_path();
+    const std::string leaf = dir.filename().string();
+    // build/Release/CyberLauncher.exe (Visual Studio) -> корінь проєкту
+    if (leaf == "Release" || leaf == "Debug" || leaf == "RelWithDebInfo" || leaf == "MinSizeRel")
+        return dir.parent_path().parent_path();
+    if (leaf == "build") return dir.parent_path();
+    return dir;  // розпакований реліз: все лежить поруч з exe
+#elif defined(__APPLE__)
     uint32_t size = 0;
     _NSGetExecutablePath(nullptr, &size);
     std::string buf(size, '\0');
-    if (_NSGetExecutablePath(buf.data(), &size) != 0) return fs::current_path();
-    return fs::canonical(fs::path(buf.c_str())).parent_path().parent_path();
+    if (_NSGetExecutablePath(buf.data(), &size) != 0) return sfs::current_path();
+    sfs::path exe = sfs::canonical(sfs::path(buf.c_str()));
+    if (exe.parent_path().filename() == "MacOS") {  // CyberLauncher.app/Contents/MacOS/CyberLauncher
+        const char* home = std::getenv("HOME");
+        if (home) return sfs::path(home) / "Library" / "Application Support" / "CyberLauncher";
+    }
+    return exe.parent_path().parent_path();  // build/launcher -> проєкт
+#else
+    std::error_code ec;
+    auto exe = sfs::read_symlink("/proc/self/exe", ec);
+    if (ec) return sfs::current_path();
+    return exe.parent_path().parent_path();
 #endif
 }
 
@@ -177,8 +252,13 @@ inline bool rulesAllow(const json& obj) {
         if (r.contains("features")) match = false;
         if (r.contains("os")) {
             auto& os = r["os"];
-            if (os.contains("name") && os["name"] != "osx") match = false;
-            if (os.contains("arch") || os.contains("version")) match = false;
+            if (os.contains("name") && os["name"] != kOsName) match = false;
+            // "arch": "x86" означає 32-бітну систему, "arm64" - ARM
+            if (os.contains("arch")) {
+                const std::string a = os["arch"].get<std::string>();
+                if (a != kArch) match = false;
+            }
+            if (os.contains("version")) match = false;
         }
         if (match) allowed = (r["action"] == "allow");
     }
@@ -206,6 +286,7 @@ inline std::string substitute(std::string s, const std::map<std::string, std::st
 
 // ---------- Java ----------
 
+#ifdef __APPLE__
 inline std::string runCapture(const std::string& cmd) {
     std::string out;
     FILE* p = popen(cmd.c_str(), "r");
@@ -216,14 +297,95 @@ inline std::string runCapture(const std::string& cmd) {
     while (!out.empty() && (out.back() == '\n' || out.back() == '\r')) out.pop_back();
     return out;
 }
+#endif
+
+inline fs::path javaExeIn(const fs::path& home) {
+    return home / "bin" / (kIsWindows ? "java.exe" : "java");
+}
+
+// Мажорна версія JDK за файлом "release" (JAVA_VERSION="17.0.9" або "1.8.0_392"). 0 - невідомо.
+inline int javaMajorOfHome(const fs::path& home) {
+    std::ifstream f(home / "release");
+    std::string line;
+    while (std::getline(f, line)) {
+        if (line.rfind("JAVA_VERSION=", 0) != 0) continue;
+        std::string v = line.substr(13);
+        v.erase(std::remove(v.begin(), v.end(), '"'), v.end());
+        v.erase(std::remove(v.begin(), v.end(), '\r'), v.end());
+        int a = std::atoi(v.c_str());
+        if (a == 1) {  // 1.8.0 -> 8
+            size_t dot = v.find('.');
+            if (dot != std::string::npos) return std::atoi(v.c_str() + dot + 1);
+        }
+        return a;
+    }
+    return 0;
+}
+
+// Рекурсивно шукає у root папки, що виглядають як JDK/JRE (є bin/java і файл release)
+inline void scanJavaHomes(const fs::path& root, int depth, std::vector<fs::path>& out) {
+    std::error_code ec;
+    if (depth < 0 || !fs::is_directory(root, ec)) return;
+    if (fs::exists(javaExeIn(root), ec) && fs::exists(root / "release", ec)) {
+        out.push_back(root);
+        return;
+    }
+    if (fs::exists(javaExeIn(root / "Contents" / "Home"), ec)) {  // macOS .jdk
+        out.push_back(root / "Contents" / "Home");
+        return;
+    }
+    for (const auto& e : fs::directory_iterator(root, ec))
+        if (e.is_directory(ec)) scanJavaHomes(e.path(), depth - 1, out);
+}
 
 // Шукає встановлену Java потрібної версії
 inline std::string findJava(int major) {
+#ifdef __APPLE__
     for (std::string v : {std::to_string(major), std::to_string(major) + "+"}) {
         std::string home = runCapture("/usr/libexec/java_home -v " + v + " 2>/dev/null");
         if (!home.empty() && fs::exists(home + "/bin/java")) return home + "/bin/java";
     }
     return "";
+#else
+    std::vector<fs::path> homes;
+    auto env = [](const char* name) -> fs::path {
+        const char* v = std::getenv(name);
+        return v ? fs::path(v) : fs::path();
+    };
+    std::error_code ec;
+    if (fs::path jh = env("JAVA_HOME"); !jh.empty() && fs::exists(javaExeIn(jh), ec)) homes.push_back(jh);
+
+    std::vector<fs::path> roots;
+    if (kIsWindows) {
+        for (const char* var : {"ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"}) {
+            fs::path pf = env(var);
+            if (pf.empty()) continue;
+            for (const char* d : {"Eclipse Adoptium", "Java", "Microsoft", "Zulu", "Amazon Corretto",
+                                  "BellSoft", "Semeru", "AdoptOpenJDK", "OpenJDK"})
+                roots.push_back(pf / d);
+        }
+        if (fs::path ad = env("APPDATA"); !ad.empty())  // Java з офіційного лаунчера Minecraft
+            roots.push_back(ad / ".minecraft" / "runtime");
+        if (fs::path up = env("USERPROFILE"); !up.empty()) roots.push_back(up / ".jdks");
+    } else {
+        roots = {"/usr/lib/jvm", "/usr/lib64/jvm", "/opt/java", "/opt/jdk"};
+        if (fs::path h = env("HOME"); !h.empty()) {
+            roots.push_back(h / ".jdks");
+            roots.push_back(h / ".sdkman" / "candidates" / "java");
+        }
+    }
+    for (const auto& r : roots) scanJavaHomes(r, 4, homes);
+
+    // Спершу точний збіг мажорної версії, інакше найменша з новіших
+    fs::path best;
+    int bestMajor = 0;
+    for (const auto& h : homes) {
+        int m = javaMajorOfHome(h);
+        if (m == major) return u8(javaExeIn(h));
+        if (m > major && (bestMajor == 0 || m < bestMajor)) { best = h; bestMajor = m; }
+    }
+    return best.empty() ? std::string() : u8(javaExeIn(best));
+#endif
 }
 
 // ---------- Завантажувачі модів, збірки і Modrinth ----------
@@ -354,8 +516,57 @@ inline std::string sha1File(const fs::path& path) {
     return out;
 }
 
+#ifdef _WIN32
+inline std::wstring widen(const std::string& s) {
+    if (s.empty()) return std::wstring();
+    int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0);
+    std::wstring w(static_cast<size_t>(n), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), w.data(), n);
+    return w;
+}
+
+// Екранування одного аргументу за правилами CommandLineToArgvW
+inline std::wstring quoteArg(const std::wstring& a) {
+    if (!a.empty() && a.find_first_of(L" \t\n\v\"") == std::wstring::npos) return a;
+    std::wstring r = L"\"";
+    for (size_t i = 0;; ++i) {
+        size_t bs = 0;
+        while (i < a.size() && a[i] == L'\\') { ++bs; ++i; }
+        if (i == a.size()) { r.append(bs * 2, L'\\'); break; }
+        if (a[i] == L'"') { r.append(bs * 2 + 1, L'\\'); r += L'"'; }
+        else { r.append(bs, L'\\'); r += a[i]; }
+    }
+    r += L'"';
+    return r;
+}
+
+inline std::wstring buildCommandLine(const std::vector<std::string>& args) {
+    std::wstring cmd;
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (i) cmd += L' ';
+        cmd += quoteArg(widen(args[i]));
+    }
+    return cmd;
+}
+#endif
+
 // Запускає зовнішню програму без оболонки, повертає код завершення
 inline int runCommand(std::vector<std::string> args) {
+#ifdef _WIN32
+    std::wstring cmd = buildCommandLine(args);
+    STARTUPINFOW si{};
+    si.cb = sizeof si;
+    PROCESS_INFORMATION pi{};
+    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr,
+                        nullptr, &si, &pi))
+        return -1;
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    DWORD code = 1;
+    GetExitCodeProcess(pi.hProcess, &code);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return static_cast<int>(code);
+#else
     std::vector<char*> argv;
     for (auto& a : args) argv.push_back(a.data());
     argv.push_back(nullptr);
@@ -368,6 +579,7 @@ inline int runCommand(std::vector<std::string> args) {
     int status = 0;
     waitpid(pid, &status, 0);
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+#endif
 }
 
 // Профіль Fabric для версії гри: бібліотеки, головний клас, аргументи
@@ -452,7 +664,7 @@ inline void fetchIcons(const std::vector<ModHit>& hits,
         }
         fs::path p = rootDir() / "cache" / "icons" / (safeName(h.projectId, false) + "." + ext);
         try {
-            if (downloadFile(h.iconUrl, p)) onIcon(h.projectId, p.string());
+            if (downloadFile(h.iconUrl, p)) onIcon(h.projectId, u8(p));
         } catch (...) {
         }
     }
@@ -557,7 +769,15 @@ inline json extractMrpack(const fs::path& mrpack, const fs::path& tmp) {
     std::error_code ec;
     fs::remove_all(tmp, ec);
     fs::create_directories(tmp);
-    int code = runCommand({"/usr/bin/unzip", "-o", "-q", mrpack.string(), "-d", tmp.string()});
+    int code;
+    if (kIsWindows) {
+        // tar.exe (bsdtar) входить до Windows 10 1803+ і вміє розпаковувати zip
+        const char* sr = std::getenv("SystemRoot");
+        std::string tar = std::string(sr ? sr : "C:\\Windows") + "\\System32\\tar.exe";
+        code = runCommand({tar, "-xf", u8(mrpack), "-C", u8(tmp)});
+    } else {
+        code = runCommand({"/usr/bin/unzip", "-o", "-q", u8(mrpack), "-d", u8(tmp)});
+    }
     if (code != 0 && code != 1) throw std::runtime_error("Не вдалося розпакувати збірку (код " + std::to_string(code) + ")");
     // Символічні посилання у збірці небезпечні
     for (const auto& e : fs::recursive_directory_iterator(tmp, ec))
@@ -678,6 +898,79 @@ inline std::string installModpack(const std::string& projectId, Status& st) {
 
 // ---------- Встановлення і запуск ----------
 
+// ---------- Запуск процесу гри ----------
+
+// Запускає Java з аргументами args (args[0] - java), вивід пише у logPath.
+// Окремий потік чекає на завершення гри й оновлює Status.
+inline void spawnGame(const std::vector<std::string>& args, const fs::path& gameDir,
+                      const fs::path& logPath, Status& st) {
+    const std::string logStr = u8(logPath);
+    auto onExit = [&st, logStr](int code) {
+        st.gameRunning = false;
+        st.log(code == 0 ? "Гру закрито"
+                         : "Гра завершилась з кодом " + std::to_string(code) + ". Деталі: " + logStr);
+    };
+#ifdef _WIN32
+    SECURITY_ATTRIBUTES sa{};
+    sa.nLength = sizeof sa;
+    sa.bInheritHandle = TRUE;
+    HANDLE hLog = CreateFileW(logPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ, &sa, CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    HANDLE hNul = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    STARTUPINFOW si{};
+    si.cb = sizeof si;
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = hNul;
+    si.hStdOutput = hLog;
+    si.hStdError = hLog;
+    PROCESS_INFORMATION pi{};
+    std::wstring cmd = buildCommandLine(args);
+    const std::wstring wdir = gameDir.wstring();
+    const BOOL ok = CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
+                                   nullptr, wdir.c_str(), &si, &pi);
+    if (hLog != INVALID_HANDLE_VALUE) CloseHandle(hLog);
+    if (hNul != INVALID_HANDLE_VALUE) CloseHandle(hNul);
+    if (!ok) throw std::runtime_error("Не вдалося запустити процес");
+    CloseHandle(pi.hThread);
+    st.gameRunning = true;
+    HANDLE proc = pi.hProcess;
+    std::thread([proc, onExit] {
+        WaitForSingleObject(proc, INFINITE);
+        DWORD code = 1;
+        GetExitCodeProcess(proc, &code);
+        CloseHandle(proc);
+        onExit(static_cast<int>(code));
+    }).detach();
+#else
+    std::vector<std::string> a = args;
+    std::vector<char*> argv;
+    for (auto& s : a) argv.push_back(s.data());
+    argv.push_back(nullptr);
+    const std::string gameDirStr = gameDir.string();
+    int logfd = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    pid_t pid = fork();
+    if (pid < 0) {
+        if (logfd >= 0) close(logfd);
+        throw std::runtime_error("Не вдалося запустити процес");
+    }
+    if (pid == 0) {
+        if (logfd >= 0) { dup2(logfd, 1); dup2(logfd, 2); }
+        if (chdir(gameDirStr.c_str()) != 0) _exit(126);
+        execv(argv[0], argv.data());
+        _exit(127);
+    }
+    if (logfd >= 0) close(logfd);
+    st.gameRunning = true;
+    std::thread([pid, onExit] {
+        int status = 0;
+        waitpid(pid, &status, 0);
+        onExit(WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    }).detach();
+#endif
+}
+
+
 inline void installAndRun(const VersionInfo& ver, const std::string& player, int ramGb,
                            Loader loader, Status& st,
                            const fs::path& instanceOverride = fs::path(),
@@ -727,11 +1020,11 @@ inline void installAndRun(const VersionInfo& ver, const std::string& player, int
         fs::path p = root / "libraries" / a["path"].get<std::string>();
         if (!downloadFile(a["url"].get<std::string>(), p, a["size"].get<std::uintmax_t>()))
             throw std::runtime_error("Не вдалося завантажити " + a["path"].get<std::string>());
-        cp.push_back(p.string());
+        cp.push_back(u8(p));
         st.progress = 0.05f + 0.25f * float(k + 1) / float(libs.size());
         st.setText("Бібліотеки: " + std::to_string(k + 1) + "/" + std::to_string(libs.size()));
     }
-    cp.push_back(jar.string());
+    cp.push_back(u8(jar));
     st.log("Бібліотек: " + std::to_string(libs.size()));
 
     // Fabric: додаткові бібліотеки, головний клас та аргументи
@@ -749,7 +1042,7 @@ inline void installAndRun(const VersionInfo& ver, const std::string& player, int
             fs::path p = root / "libraries" / rel;
             if (!downloadFile(base + rel, p))
                 throw std::runtime_error("Не вдалося завантажити " + rel);
-            fabricCp.push_back(p.string());
+            fabricCp.push_back(u8(p));
         }
         cp.insert(cp.begin(), fabricCp.begin(), fabricCp.end());
         mainClass = fabric["mainClass"].get<std::string>();
@@ -803,13 +1096,13 @@ inline void installAndRun(const VersionInfo& ver, const std::string& player, int
     fs::create_directories(gameDir);
 
     std::string cpStr;
-    for (size_t k = 0; k < cp.size(); ++k) cpStr += (k ? ":" : "") + cp[k];
+    for (size_t k = 0; k < cp.size(); ++k) cpStr += (k ? std::string(1, kPathSep) : std::string()) + cp[k];
 
     std::map<std::string, std::string> vars = {
         {"auth_player_name", player},
         {"version_name", ver.id},
-        {"game_directory", gameDir.string()},
-        {"assets_root", assets.string()},
+        {"game_directory", u8(gameDir)},
+        {"assets_root", u8(assets)},
         {"assets_index_name", assetId},
         {"auth_uuid", "00000000-0000-0000-0000-000000000000"},
         {"auth_access_token", "0"},
@@ -817,7 +1110,7 @@ inline void installAndRun(const VersionInfo& ver, const std::string& player, int
         {"auth_xuid", "0"},
         {"user_type", "legacy"},
         {"version_type", vj["type"].get<std::string>()},
-        {"natives_directory", natives.string()},
+        {"natives_directory", u8(natives)},
         {"launcher_name", "MyLauncher"},
         {"launcher_version", "0.2"},
         {"classpath", cpStr},
@@ -832,35 +1125,12 @@ inline void installAndRun(const VersionInfo& ver, const std::string& player, int
 
     std::vector<std::string> args;
     for (auto& s : raw) args.push_back(substitute(s, vars));
-    std::vector<char*> argvv;
-    for (auto& s : args) argvv.push_back(s.data());
-    argvv.push_back(nullptr);
 
     // Запуск: вивід гри йде у файл game.log
-    std::string logPath = (root / "game.log").string();
-    int logfd = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    const fs::path logPath = root / "game.log";
     st.log("Запускаю Minecraft " + ver.id + " ...");
-    pid_t pid = fork();
-    if (pid < 0) throw std::runtime_error("Не вдалося запустити процес");
-    if (pid == 0) {
-        if (logfd >= 0) { dup2(logfd, 1); dup2(logfd, 2); }
-        if (chdir(gameDir.c_str()) != 0) _exit(126);
-        execv(javaBin.c_str(), argvv.data());
-        _exit(127);
-    }
-    if (logfd >= 0) close(logfd);
-
+    spawnGame(args, gameDir, logPath, st);
     st.progress = 1.f;
-    st.gameRunning = true;
-    std::thread([pid, &st, logPath] {
-        int status = 0;
-        waitpid(pid, &status, 0);
-        int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-        st.gameRunning = false;
-        st.log(code == 0 ? "Гру закрито"
-                         : "Гра завершилась з кодом " + std::to_string(code) +
-                               ". Деталі: " + logPath);
-    }).detach();
 }
 
 }  // namespace core

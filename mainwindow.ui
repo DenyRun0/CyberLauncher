@@ -51,7 +51,7 @@ QPushButton#packRemoveButton { background-color: #ef4444; color: #ffffff; border
 QPushButton#packRemoveButton:hover { background-color: #f87171; }
 QProgressBar { background-color: rgba(255, 255, 255, 30); border: none; border-radius: 4px; max-height: 8px; color: transparent; }
 QProgressBar::chunk { background-color: #22d65f; border-radius: 4px; }
-QPlainTextEdit { background-color: #0b0b0b; border: 1px solid #2a2a2a; border-radius: 12px; padding: 8px; font-family: Menlo; font-size: 12px; }
+QPlainTextEdit { background-color: #0b0b0b; border: 1px solid #2a2a2a; border-radius: 12px; padding: 8px; font-family: Menlo, Consolas, "Courier New", monospace; font-size: 12px; }
 QCheckBox { spacing: 8px; }
 QCheckBox::indicator { width: 18px; height: 18px; border-radius: 5px; border: 1px solid #555555; background: #101010; }
 QCheckBox::indicator:checked { background-color: #ffffff; border-color: #ffffff; }

@@ -6,6 +6,7 @@
 #include <QComboBox>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QDir>
 #include <QFile>
 #include <QFont>
 #include <QIcon>
@@ -34,6 +35,9 @@ static constexpr int kPlaceholderRole = Qt::UserRole + 1;
 static constexpr int kAutoPages = 2;
 
 static fs::path configPath() { return core::rootDir() / "config.json"; }
+
+// Шлях -> QString без втрати не-ASCII символів (на Windows path::string() дає ANSI-кодування)
+static QString qpath(const fs::path& p) { return QString::fromStdWString(p.wstring()); }
 
 static QString T(i18n::Key k) { return i18n::tr(k); }
 static std::string TS(i18n::Key k) { return i18n::tr(k).toStdString(); }
@@ -265,8 +269,7 @@ MainWindow::MainWindow(QWidget* parent)
     }
 
     // Фон: якщо поряд із проєктом лежить background.jpg, беремо його, інакше вбудований bg.jpg
-    const QString customBg =
-        QString::fromStdString((core::projectDir() / "background.jpg").string());
+    const QString customBg = qpath(core::projectDir() / "background.jpg");
     if (!bgSource.load(customBg)) bgSource.load(":/bg.jpg");
     rebuildBackground();
 
@@ -300,7 +303,7 @@ MainWindow::MainWindow(QWidget* parent)
         updatePackPreview();
     });
 
-    ui->pathLabel->setText(QString::fromStdString(core::rootDir().string()));
+    ui->pathLabel->setText(QDir::toNativeSeparators(qpath(core::rootDir())));
 
     connect(&timer, &QTimer::timeout, this, &MainWindow::pollStatus);
     timer.start(100);
@@ -548,7 +551,7 @@ void MainWindow::on_refreshButton_clicked() {
 
 void MainWindow::on_openFolderButton_clicked() {
     fs::create_directories(core::rootDir());
-    QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(core::rootDir().string())));
+    QDesktopServices::openUrl(QUrl::fromLocalFile(qpath(core::rootDir())));
 }
 
 void MainWindow::on_playButton_clicked() {
