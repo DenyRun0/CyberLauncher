@@ -1,0 +1,9 @@
+{
+  "loader": "fabric",
+  "loaderVersion": "0.19.5",
+  "mcVersion": "26.3",
+  "name": "Fabulously Optimized",
+  "projectId": "1KVo5zza",
+  "slug": "fabulously-optimized",
+  "versionNumber": "15.0.0-alpha.5"
+}

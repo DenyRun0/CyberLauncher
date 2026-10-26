@@ -1,0 +1,16 @@
+<RCC>
+  <qresource prefix="/">
+    <file>logo.png</file>
+    <file>bg.jpg</file>
+    <file>icons/play.png</file>
+    <file>icons/play_on.png</file>
+    <file>icons/mods.png</file>
+    <file>icons/mods_on.png</file>
+    <file>icons/packs.png</file>
+    <file>icons/packs_on.png</file>
+    <file>icons/settings.png</file>
+    <file>icons/settings_on.png</file>
+    <file>icons/log.png</file>
+    <file>icons/log_on.png</file>
+  </qresource>
+</RCC>
