@@ -896,6 +896,78 @@ inline std::string installModpack(const std::string& projectId, Status& st) {
     return slug;
 }
 
+// ---------- Автоматичне завантаження Java ----------
+
+// Java, яку лаунчер сам завантажив: <game>/runtime/java-<версія>
+inline std::string findBundledJava(int major) {
+    std::vector<fs::path> homes;
+    scanJavaHomes(rootDir() / "runtime" / ("java-" + std::to_string(major)), 4, homes);
+    for (const auto& h : homes) {
+        std::error_code ec;
+        if (fs::exists(javaExeIn(h), ec)) return u8(javaExeIn(h));
+    }
+    return "";
+}
+
+// Повертає шлях до java потрібної мажорної версії. Якщо її немає ні у лаунчері, ні в системі,
+// завантажує Temurin JDK з Adoptium у <game>/runtime.
+inline std::string ensureJava(int major, Status& st) {
+    std::string j = findBundledJava(major);
+    if (!j.empty()) return j;
+    j = findJava(major);
+    if (!j.empty()) return j;
+
+#if defined(_WIN32)
+    const char* aos = "windows";
+    const char* ext = "zip";
+#elif defined(__APPLE__)
+    const char* aos = "mac";
+    const char* ext = "tar.gz";
+#else
+    const char* aos = "linux";
+    const char* ext = "tar.gz";
+#endif
+    const std::string karch = kArch;
+    const char* aarch = karch == "arm64" ? "aarch64" : (karch == "x86_64" ? "x64" : "x32");
+
+    const std::string url = "https://api.adoptium.net/v3/binary/latest/" + std::to_string(major) +
+                            "/ga/" + aos + "/" + aarch + "/jdk/hotspot/normal/eclipse";
+    const fs::path archive = rootDir() / "cache" / ("java-" + std::to_string(major) + "." + ext);
+    const fs::path dest = rootDir() / "runtime" / ("java-" + std::to_string(major));
+
+    st.log("Java " + std::to_string(major) + " не знайдено, завантажую (~200 МБ) ...");
+    std::error_code ec;
+    fs::remove(archive, ec);  // не використовуємо недокачаний файл з минулого разу
+    if (!downloadFile(url, archive))
+        throw std::runtime_error("Не вдалося завантажити Java " + std::to_string(major) +
+                                 ". Встанови JDK вручну з adoptium.net");
+    checkCancel();
+
+    st.log("Розпаковую Java ...");
+    fs::remove_all(dest, ec);
+    fs::create_directories(dest);
+    int code;
+    if (kIsWindows) {
+        const char* sr = std::getenv("SystemRoot");
+        std::string tar = std::string(sr ? sr : "C:\\Windows") + "\\System32\\tar.exe";
+        code = runCommand({tar, "-xf", u8(archive), "-C", u8(dest)});
+    } else {
+        code = runCommand({"/usr/bin/tar", "-xzf", u8(archive), "-C", u8(dest)});
+    }
+    fs::remove(archive, ec);
+    if (code != 0) {
+        fs::remove_all(dest, ec);
+        throw std::runtime_error("Не вдалося розпакувати Java (код " + std::to_string(code) + ")");
+    }
+
+    j = findBundledJava(major);
+    if (j.empty()) {
+        fs::remove_all(dest, ec);
+        throw std::runtime_error("Після розпакування Java " + std::to_string(major) + " не знайдено");
+    }
+    return j;
+}
+
 // ---------- Встановлення і запуск ----------
 
 // ---------- Запуск процесу гри ----------
@@ -1084,7 +1156,7 @@ inline void installAndRun(const VersionInfo& ver, const std::string& player, int
 
     // Java
     int major = vj.contains("javaVersion") ? vj["javaVersion"]["majorVersion"].get<int>() : 17;
-    std::string javaBin = findJava(major);
+    std::string javaBin = ensureJava(major, st);  // шукає, а якщо немає, завантажує сама
     if (javaBin.empty())
         throw std::runtime_error("Не знайдено Java " + std::to_string(major) +
                                  ". Встанови JDK " + std::to_string(major) + " з adoptium.net");
