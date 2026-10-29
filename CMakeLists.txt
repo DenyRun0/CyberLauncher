@@ -9,6 +9,12 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(CURL REQUIRED)
+# nlohmann/json: з системи/vcpkg/brew; якщо не знайдено, беремо з папки include/ проєкту
+find_package(nlohmann_json QUIET)
+
+# Режим розробника: дані гри лежать у папці з вихідниками (-DDEV_ROOT=ON).
+# Для релізу лишайте OFF, тоді шлях до даних визначається під час запуску.
+option(DEV_ROOT "Use the source directory as the data root" OFF)
 
 set(LAUNCHER_SOURCES
     main.cpp
@@ -47,14 +53,31 @@ if(APPLE)
 endif()
 
 target_include_directories(launcher PRIVATE include)
-# Усі дані гри (папка game) лежатимуть у цій папці проєкту
-target_compile_definitions(launcher PRIVATE LAUNCHER_ROOT="${CMAKE_SOURCE_DIR}")
+if(DEV_ROOT)
+    # Усі дані гри (папка game) лежатимуть у цій папці проєкту
+    target_compile_definitions(launcher PRIVATE LAUNCHER_ROOT="${CMAKE_SOURCE_DIR}")
+endif()
 target_link_libraries(launcher PRIVATE Qt6::Widgets CURL::libcurl)
+if(nlohmann_json_FOUND)
+    target_link_libraries(launcher PRIVATE nlohmann_json::nlohmann_json)
+endif()
 
 # ---------- Windows ----------
 if(MSVC)
     # Українські рядки в UTF-8 у вихідниках
     target_compile_options(launcher PRIVATE /utf-8)
+endif()
+
+if(APPLE)
+    # Вбудовуємо Qt у .app, щоб програма запускалась на Mac без встановленого Qt
+    get_target_property(_qmake_exe Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_mac "${_qmake_exe}" DIRECTORY)
+    find_program(MACDEPLOYQT_EXE macdeployqt HINTS "${_qt_bin_mac}" "${Qt6_DIR}/../../../bin")
+    if(MACDEPLOYQT_EXE)
+        add_custom_command(TARGET launcher POST_BUILD
+            COMMAND "${MACDEPLOYQT_EXE}" "$<TARGET_BUNDLE_DIR:launcher>"
+            COMMENT "macdeployqt: вбудовую Qt у .app")
+    endif()
 endif()
 
 if(WIN32)

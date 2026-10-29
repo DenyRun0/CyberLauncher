@@ -1,10 +1,8 @@
-name: Build
+name: build
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -22,19 +20,21 @@ jobs:
           arch: win64_msvc2019_64
           cache: true
 
-      - name: Install libcurl
-        run: vcpkg install curl:x64-windows
+      - name: Install curl and json via vcpkg
+        run: vcpkg install curl:x64-windows nlohmann-json:x64-windows
 
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+        run: >
+          cmake -B build
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
 
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Package
+      - name: Pack
         shell: pwsh
-        run: |
-          Compress-Archive -Path build/Release/* -DestinationPath CyberLauncher-windows.zip
+        run: Compress-Archive -Path build/Release/* -DestinationPath CyberLauncher-windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
@@ -46,29 +46,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.7.*'
-          cache: true
+      - name: Install dependencies
+        run: brew install qt cmake curl nlohmann-json
 
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
 
-      - name: Build
-        run: cmake --build build --config Release
+      - name: Build (macdeployqt runs automatically)
+        run: cmake --build build
 
-      - name: Bundle Qt and sign (ad-hoc)
-        run: |
-          macdeployqt build/CyberLauncher.app
-          codesign --force --deep -s - build/CyberLauncher.app
-
-      - name: Package
-        run: |
-          mkdir dist
-          cp -R build/CyberLauncher.app dist/
-          cp run-mac.command dist/
-          chmod +x dist/run-mac.command
-          ditto -c -k --keepParent dist CyberLauncher-macos.zip
+      - name: Pack
+        run: ditto -c -k --keepParent build/CyberLauncher.app CyberLauncher-macos.zip
 
       - uses: actions/upload-artifact@v4
         with:
@@ -82,8 +70,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: dist
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: dist/*.zip
