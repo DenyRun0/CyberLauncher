@@ -92,8 +92,8 @@ jobs:
           APP=build/CyberLauncher.app
           test -f "$APP/Contents/MacOS/CyberLauncher"
           test -d "$APP/Contents/Frameworks/QtCore.framework"
-          lipo -verify_arch "${{ matrix.arch }}" "$APP/Contents/MacOS/CyberLauncher"
-          lipo -verify_arch "${{ matrix.arch }}" "$APP/Contents/Frameworks/QtCore.framework/QtCore"
+          lipo "$APP/Contents/MacOS/CyberLauncher" -verify_arch "${{ matrix.arch }}"
+          lipo "$APP/Contents/Frameworks/QtCore.framework/QtCore" -verify_arch "${{ matrix.arch }}"
           codesign --verify --deep "$APP"
           ditto -c -k --keepParent "$APP" "${{ matrix.archive }}.zip"
 
