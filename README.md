@@ -9,11 +9,10 @@
 **Windows:** `CyberLauncher-windows.zip` → розпакувати → `CyberLauncher.exe`.
 Дані гри зберігаються в теці `game` поруч з exe.
 
-**macOS (Apple Silicon):** `CyberLauncher-macos.zip` → розпакувати → двічі клікнути `run-mac.command`.
-Якщо macOS не дозволяє відкрити файл: правий клік → «Відкрити» → «Відкрити».
+**macOS (Apple Silicon):** `CyberLauncher-macos.zip` → розпакувати → відкрити `CyberLauncher.app` після перевірки походження та сумісності програми.
 Дані гри: `~/Library/Application Support/CyberLauncher/game`.
 
-Потрібен встановлений JDK (Java) з https://adoptium.net: версія 17 для Minecraft 1.18–1.20.4, 21 для новіших.
+Ядро визначає потрібну версію Java за метаданими Minecraft, шукає встановлену Java та за її відсутності передбачає автоматичне завантаження. Для запуску потрібне законне право користування Minecraft.
 
 ## Збірка з вихідного коду
 
@@ -43,3 +42,14 @@ build\Release\CyberLauncher.exe
 git tag v1.0.0
 git push origin v1.0.0
 ```
+
+## Автоматизовані тести
+
+Після конфігурації CMake з `-DBUILD_TESTING=ON`:
+
+```bash
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+П'ять перевірок охоплюють кодування URL, шлях Maven, підстановку параметрів та відхилення непідтримуваної адреси.
