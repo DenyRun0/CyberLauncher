@@ -534,6 +534,5 @@ README і структура перевірені. Реліз v3.1-build-8 оп�
 **Висновок:** підготовлено документацію і приклади використання.
 
 ## Джерела
-- Надані документи «силабус 2026(1).docx» і «Практична ПРоект.docx» (практичні 1–10, скриншоти інтерфейсу).
 - [Вихідний код за перевіреним commit](https://github.com/DenyRun0/CyberLauncher/tree/c623fa1b5cf9f2ce8b6c9cd812ca6cafd63373e2).
-- [Ядро](https://github.com/DenyRun0/CyberLauncher/blob/main/core.hpp), [UI](https://github.com/DenyRun0/CyberLauncher/blob/main/mainwindow.cpp), [CMake](https://github.com/DenyRun0/CyberLauncher/blob/main/CMakeLists.txt), [CI](https://github.com/DenyRun0/CyberLauncher/blob/main/.github/workflows/build.yml). [гілки](https://github.com/DenyRun0/CyberLauncher/branches), [Issues](https://github.com/DenyRun0/CyberLauncher/issues), [Pull Requests](https://github.com/DenyRun0/CyberLauncher/pulls).
+- [Ядро](https://github.com/DenyRun0/CyberLauncher/blob/main/core.hpp), [UI](https://github.com/DenyRun0/CyberLauncher/blob/main/mainwindow.cpp), [CMake](https://github.com/DenyRun0/CyberLauncher/blob/main/CMakeLists.txt), [CI][гілки](https://github.com/DenyRun0/CyberLauncher/branches), [Issues](https://github.com/DenyRun0/CyberLauncher/issues), [Pull Requests](https://github.com/DenyRun0/CyberLauncher/pulls).
