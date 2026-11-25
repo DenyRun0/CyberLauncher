@@ -1,0 +1,16 @@
+name: Core tests
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y qt6-base-dev libcurl4-openssl-dev
+      - run: cmake -S . -B build -DBUILD_TESTING=ON
+      - run: cmake --build build --target core_tests
+      - run: ctest --test-dir build --output-on-failure
