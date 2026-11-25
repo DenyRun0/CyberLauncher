@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "i18n.h"
+#include "modstate.hpp"
 #include "ui_mainwindow.h"
 
 #include <QColor>
@@ -394,6 +395,7 @@ void MainWindow::retranslateUi() {
     ui->modInstallButton->setText(T(Install));
     ui->modInstalledCaption->setText(T(ModInstalledCaption));
     ui->modRemoveButton->setText(T(RemoveSelected));
+    ui->modToggleButton->setText(T(ToggleMod));
     updateModsHint();
 
     // Збірки
@@ -769,7 +771,7 @@ void MainWindow::autoLoadMore() {
 void MainWindow::on_modInstallButton_clicked() {
     QListWidgetItem* item = ui->modResults->currentItem();
     Target t;
-    if (!item || sh.mods.st.busy || !currentTarget(t)) return;
+    if (!item || sh.mods.st.busy || sh.packs.st.busy || sh.st.busy || sh.st.gameRunning || !currentTarget(t)) return;
     const std::string projectId = item->data(Qt::UserRole).toString().toStdString();
     if (projectId.empty()) return;
     const fs::path modsDir = t.dir / "mods";
@@ -794,11 +796,26 @@ void MainWindow::on_modInstallButton_clicked() {
 void MainWindow::on_modRemoveButton_clicked() {
     QListWidgetItem* item = ui->installedList->currentItem();
     Target t;
-    if (!item || !currentTarget(t)) return;
+    if (!item || !currentTarget(t) || sh.st.busy || sh.st.gameRunning ||
+        sh.mods.st.busy || sh.packs.st.busy) return;
     std::error_code ec;
-    fs::remove(t.dir / "mods" / item->text().toStdString(), ec);
-    sh.mods.st.setText(TS(ec ? i18n::ModRemoveFail : i18n::ModRemoved));
+    const bool removed = fs::remove(t.dir / "mods" / item->text().toStdWString(), ec);
+    sh.mods.st.setText(TS(ec || !removed ? i18n::ModRemoveFail : i18n::ModRemoved));
     refreshInstalledList();
+}
+
+void MainWindow::on_modToggleButton_clicked() {
+    auto* item = ui->installedList->currentItem();
+    Target t;
+    if (!item || !currentTarget(t) || sh.st.busy || sh.st.gameRunning ||
+        sh.mods.st.busy || sh.packs.st.busy) return;
+    try {
+        auto name = modstate::toggle(t.dir / "mods", fs::path(item->text().toStdWString()));
+        sh.mods.st.setText(TS(modstate::disabled(name) ? i18n::ModDisabled : i18n::ModEnabled));
+        refreshInstalledList();
+    } catch (const std::exception& e) {
+        sh.mods.st.setText(TSA(i18n::Error, QString::fromUtf8(e.what())));
+    }
 }
 
 void MainWindow::refreshInstalledList() {
@@ -808,11 +825,11 @@ void MainWindow::refreshInstalledList() {
     const fs::path dir = t.dir / "mods";
     std::error_code ec;
     if (!fs::exists(dir, ec)) return;
-    std::vector<std::string> names;
+    std::vector<fs::path> names;
     for (const auto& e : fs::directory_iterator(dir, ec))
-        if (e.is_regular_file() && e.path().extension() == ".jar") names.push_back(e.path().filename().string());
+        if (e.is_regular_file() && modstate::supported(e.path())) names.push_back(e.path().filename());
     std::sort(names.begin(), names.end());
-    for (const auto& n : names) ui->installedList->addItem(QString::fromStdString(n));
+    for (const auto& n : names) ui->installedList->addItem(qpath(n));
 }
 
 // ---------- Збірки: встановлення та видалення ----------
@@ -1094,7 +1111,10 @@ void MainWindow::pollStatus() {
     const bool ready = sh.state == 1;
     ui->modSearchButton->setEnabled(ready && !modBusy && !verId.isEmpty());
     ui->modMoreButton->setEnabled(ready && !modBusy && modHasMore);
-    ui->modInstallButton->setEnabled(!modBusy && ui->modResults->currentItem() != nullptr);
+    const bool canChangeMods = !modBusy && !packBusy && !sh.st.busy && !sh.st.gameRunning;
+    ui->modInstallButton->setEnabled(canChangeMods && ui->modResults->currentItem() != nullptr);
+    ui->modRemoveButton->setEnabled(canChangeMods && ui->installedList->currentItem() != nullptr);
+    ui->modToggleButton->setEnabled(canChangeMods && ui->installedList->currentItem() != nullptr);
     ui->packSearchButton->setEnabled(ready && !packBusy);
     ui->packMoreButton->setEnabled(ready && !packBusy && packHasMore);
     ui->packInstallButton->setEnabled(!packBusy && ui->packResults->currentItem() != nullptr);
