@@ -94,7 +94,20 @@ jobs:
           test -d "$APP/Contents/Frameworks/QtCore.framework"
           lipo "$APP/Contents/MacOS/CyberLauncher" -verify_arch "${{ matrix.arch }}"
           lipo "$APP/Contents/Frameworks/QtCore.framework/QtCore" -verify_arch "${{ matrix.arch }}"
-          codesign --verify --deep "$APP"
+          # Підписуємо вкладені бібліотеки та плагіни після завершення macdeployqt.
+          test -f "$APP/Contents/PlugIns/platforms/libqcocoa.dylib"
+          lipo "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" -verify_arch "${{ matrix.arch }}"
+          find "$APP/Contents" -type f -name '*.dylib' -print0 |
+            while IFS= read -r -d '' lib; do
+              codesign --force --sign - --timestamp=none "$lib"
+            done
+          find "$APP/Contents/Frameworks" -depth -type d -name '*.framework' -print0 |
+            while IFS= read -r -d '' framework; do
+              codesign --force --sign - --timestamp=none "$framework"
+            done
+          # Підписуємо основний пакет останнім і перевіряємо весь його вміст.
+          codesign --force --sign - --timestamp=none "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
           ditto -c -k --keepParent "$APP" "${{ matrix.archive }}.zip"
 
       - uses: actions/upload-artifact@v4
