@@ -189,6 +189,26 @@ flowchart TD
 ```
 Сценарії: запуск Vanilla; встановлення мода і запуск Fabric; зміна RAM. Інтерфейс реалізовано у Qt Widgets (`mainwindow.ui`, `mainwindow.cpp`), переходи описано схемою вище. Оригінальні знімки п’яти екранів містяться у [початковому документі](Laboratory/Практична%20ПРоект.docx). Figma не використовувалась; заміна на Qt Designer потребує погодження викладача.
 
+**Грати**
+
+![play](docs/screenshots/play.jpg)
+
+**Моди**
+
+![mods](docs/screenshots/mods.jpg)
+
+**Збірки**
+
+![packs](docs/screenshots/packs.jpg)
+
+**Налаштування**
+
+![settings](docs/screenshots/settings.jpg)
+
+**Журнал**
+
+![journal](docs/screenshots/journal.jpg)
+
 **Висновок:** описано інтерфейс і переходи.
 
 ## Практична №9. Основи Git та GitHub
