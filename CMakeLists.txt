@@ -111,4 +111,7 @@ if(BUILD_TESTING)
         target_link_libraries(core_tests PRIVATE nlohmann_json::nlohmann_json)
     endif()
     add_test(NAME core_tests COMMAND core_tests)
+    # Негативні перевірки файлового модуля без мережі та GUI.
+    add_executable(modstate_negative_tests tests/modstate_negative_tests.cpp)
+    add_test(NAME modstate_negative_tests COMMAND modstate_negative_tests)
 endif()

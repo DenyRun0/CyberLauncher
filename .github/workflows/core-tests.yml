@@ -2,6 +2,14 @@ name: Core tests
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'tests/**'
+      - 'CMakeLists.txt'
+      - 'core.hpp'
+      - 'modstate.hpp'
+      - '.github/workflows/core-tests.yml'
   workflow_dispatch:
 permissions:
   contents: read
