@@ -61,6 +61,9 @@
     X(Install, "Встановити", "Install")                                                            \
     X(ModInstalledCaption, "ВСТАНОВЛЕНІ МОДИ", "INSTALLED MODS")                                   \
     X(RemoveSelected, "Видалити вибраний", "Remove selected")                                      \
+    X(ToggleMod, "Увімкнути / вимкнути", "Enable / disable") \
+    X(ModDisabled, "Мод вимкнено", "Mod disabled") \
+    X(ModEnabled, "Мод увімкнено", "Mod enabled") \
     /* Каталог збірок */                                                                           \
     X(PacksHint,                                                                                   \
       "Готові збірки з Modrinth (Fabric, Minecraft 1.19+). Після встановлення збірка з'являється "  \

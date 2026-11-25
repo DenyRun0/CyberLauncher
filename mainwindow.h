@@ -106,6 +106,7 @@ private slots:
     void on_modMoreButton_clicked();
     void on_modInstallButton_clicked();
     void on_modRemoveButton_clicked();
+    void on_modToggleButton_clicked();
 
     void on_packSearchButton_clicked();
     void on_packSearchEdit_returnPressed();
