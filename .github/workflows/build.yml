@@ -3,6 +3,9 @@ name: build
 on:
   push:
     tags: ['v*']
+    branches: [main]
+    paths:
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
@@ -42,29 +45,66 @@ jobs:
           path: CyberLauncher-windows.zip
 
   macos:
-    runs-on: macos-latest
+    name: Збірка macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: x86_64
+            archive: CyberLauncher-macos-intel
+          - runner: macos-15
+            arch: arm64
+            archive: CyberLauncher-macos-arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: brew install qt cmake curl nlohmann-json
+      - name: Встановлення Qt 6.8.3
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: mac
+          target: desktop
+          arch: clang_64
+          cache: true
 
-      - name: Configure
-        run: cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+      - name: Налаштування збірки для macOS 12 і новіших
+        run: |
+          SDK="$(xcrun --show-sdk-path)"
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
+            -DCURL_NO_CURL_CMAKE=ON \
+            -DCURL_LIBRARY="$SDK/usr/lib/libcurl.tbd" \
+            -DCURL_INCLUDE_DIR="$SDK/usr/include" \
+            -DBUILD_TESTING=ON
 
-      - name: Build (macdeployqt runs automatically)
-        run: cmake --build build
+      - name: Збірка та тести
+        run: |
+          cmake --build build --config Release --parallel 2
+          ctest --test-dir build -C Release --output-on-failure
 
-      - name: Pack
-        run: ditto -c -k --keepParent build/CyberLauncher.app CyberLauncher-macos.zip
+      - name: Перевірка архітектури та пакування
+        run: |
+          APP=build/CyberLauncher.app
+          test -f "$APP/Contents/MacOS/CyberLauncher"
+          test -d "$APP/Contents/Frameworks/QtCore.framework"
+          lipo -verify_arch "${{ matrix.arch }}" "$APP/Contents/MacOS/CyberLauncher"
+          lipo -verify_arch "${{ matrix.arch }}" "$APP/Contents/Frameworks/QtCore.framework/QtCore"
+          codesign --verify --deep "$APP"
+          ditto -c -k --keepParent "$APP" "${{ matrix.archive }}.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CyberLauncher-macos
-          path: CyberLauncher-macos.zip
+          name: ${{ matrix.archive }}
+          path: ${{ matrix.archive }}.zip
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Релізи за тегами; для першої збірки Intel — явна позначка в коміті.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[реліз]'))
     needs: [windows, macos]
     runs-on: ubuntu-latest
     steps:
@@ -74,4 +114,8 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v3.1-build-{0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('CyberLauncher 3.1 — збірка {0}', github.run_number) }}
+          fail_on_unmatched_files: true
           files: dist/*.zip
