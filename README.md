@@ -73,3 +73,5 @@ ctest --test-dir build -C Release --output-on-failure
 - [Сценарій демонстрації](docs/DEMO.md)
 - [Реліз v3.1-build-8](https://github.com/DenyRun0/CyberLauncher/releases/tag/v3.1-build-8)
 - [Фінальне приймання](https://github.com/DenyRun0/CyberLauncher/issues/7)
+
+- [Галерея оригінальних знімків](docs/SCREENSHOTS.md)
