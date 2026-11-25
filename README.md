@@ -9,7 +9,11 @@
 **Windows:** `CyberLauncher-windows.zip` → розпакувати → `CyberLauncher.exe`.
 Дані гри зберігаються в теці `game` поруч з exe.
 
-**macOS (Apple Silicon):** `CyberLauncher-macos.zip` → розпакувати → відкрити `CyberLauncher.app` після перевірки походження та сумісності програми.
+**macOS (Intel):** `CyberLauncher-macos-intel.zip` → розпакувати → відкрити `CyberLauncher.app` після перевірки походження програми.
+
+**macOS (Apple Silicon, M1/M2/M3/M4 та новіші):** `CyberLauncher-macos-arm64.zip` → розпакувати → відкрити `CyberLauncher.app`.
+
+Цільова мінімальна версія для обох нових збірок — macOS 12 Monterey (Qt 6.8.3). Фактичну сумісність із конкретною версією системи потрібно перевірити запуском. Попередній архів `CyberLauncher-macos.zip` у релізі v3.0 призначений для Apple Silicon.
 Дані гри: `~/Library/Application Support/CyberLauncher/game`.
 
 Ядро визначає потрібну версію Java за метаданими Minecraft, шукає встановлену Java та за її відсутності передбачає автоматичне завантаження. Для запуску потрібне законне право користування Minecraft.
@@ -37,7 +41,7 @@ build\Release\CyberLauncher.exe
 
 ## Як опублікувати реліз
 
-Зробіть тег і надішліть його на GitHub: GitHub Actions збере архіви для Windows і macOS і прикріпить їх до релізу.
+Зробіть тег і надішліть його на GitHub: GitHub Actions збере архіви для Windows, macOS Intel та macOS Apple Silicon і прикріпить їх до релізу.
 ```
 git tag v1.0.0
 git push origin v1.0.0
