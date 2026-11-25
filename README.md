@@ -69,7 +69,6 @@ ctest --test-dir build -C Release --output-on-failure
 
 - [Практичні №1–20](CyberLauncher_Labs.md)
 - [Інструкція користувача](docs/USER_MANUAL.md)
-- [Kanban та sprint](docs/KANBAN.md)
 - [Сценарій демонстрації](docs/DEMO.md)
 - [Реліз v3.1-build-8](https://github.com/DenyRun0/CyberLauncher/releases/tag/v3.1-build-8)
 - [Перевірка сумісності та функціональності](https://github.com/DenyRun0/CyberLauncher/issues/7)
