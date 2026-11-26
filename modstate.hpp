@@ -11,7 +11,7 @@ inline bool disabled(const fs::path& p) {
 inline bool supported(const fs::path& p) {
     return p.extension() == ".jar" || disabled(p);
 }
-// Accept only a filename in the selected mods directory; never overwrite a file.
+// Приймайте лише назву файлу в каталозі вибраних модів; ніколи не перезаписуйте файл.
 inline fs::path toggle(const fs::path& dir, const fs::path& name) {
     if (name.empty() || name != name.filename() || !supported(name))
         throw std::runtime_error("Invalid mod filename");
