@@ -593,12 +593,6 @@ CyberLauncher — лаунчер для Minecraft, у якому можна ви
 
 Підготували [README](README.md) з описом проєкту та інструкцією зі збірки програми. Перевірили структуру репозиторію та додали [знімки інтерфейсу](docs/SCREENSHOTS.md).
 
-**5. Презентація та демонстрація**
-
-Підготували презентацію PowerPoint. Під час демонстрації покажемо головне вікно, вибір версії, запуск гри, встановлення модів і збірок та налаштування.
 
 **Висновок:** підготували готовий лаунчер, документацію, презентацію та план демонстрації.
 
-## Джерела
-- [Вихідний код за перевіреним commit](https://github.com/DenyRun0/CyberLauncher/tree/c623fa1b5cf9f2ce8b6c9cd812ca6cafd63373e2).
-- [Ядро](https://github.com/DenyRun0/CyberLauncher/blob/main/core.hpp), (https://github.com/DenyRun0/CyberLauncher/blob/main/mainwindow.cpp), [CMake](https://github.com/DenyRun0/CyberLauncher/blob/main/CMakeLists.txt), [CI][гілки](https://github.com/DenyRun0/CyberLauncher/branches), [Issues](https://github.com/DenyRun0/CyberLauncher/issues), [Pull Requests](https://github.com/DenyRun0/CyberLauncher/pulls).
