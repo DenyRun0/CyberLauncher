@@ -443,7 +443,6 @@ US1 — користувач хоче вибрати версію Minecraft.
 
 **4. Commit та README**
 
-Реалізація вибору версій уже є в [коміті 0bdc30a](https://github.com/DenyRun0/CyberLauncher/commit/0bdc30afac3f881f13615bf9475c0e11e4c85655).
 
 У [README.md](README.md) є опис лаунчера та інструкції зі збірки і запуску програми.
 
