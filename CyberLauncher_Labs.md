@@ -3,7 +3,7 @@
 **Команда:** CyberLeaks  
 **Проєкт:** CyberLauncher — лаунчер Minecraft  
 **Репозиторій:** https://github.com/DenyRun0/CyberLauncher  
-**База аналізу:** main, commit `c623fa1b5cf9f2ce8b6c9cd812ca6cafd63373e2`.
+
 
 
 ## Практична №1. Вступ до програмної інженерії та формування команди
