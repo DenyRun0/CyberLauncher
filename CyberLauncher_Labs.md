@@ -414,9 +414,9 @@ US1 — користувач хоче вибрати версію Minecraft.
 
 **3. Робота з GitHub**
 
-Зміни зберегли в комітах [0bdc30a](https://github.com/DenyRun0/CyberLauncher/commit/0bdc30afac3f881f13615bf9475c0e11e4c85655) (моди та збірки) і [225e3a4](https://github.com/DenyRun0/CyberLauncher/commit/225e3a4b6613a55b93ef04c3c141f55e326d4219) (завантаження Java). Для об'єднання змін використовували Pull Requests [#4](https://github.com/DenyRun0/CyberLauncher/pull/4) та [#5](https://github.com/DenyRun0/CyberLauncher/pull/5). При виникненні конфлікту потрібно виправити спільні рядки та зберегти зміни, як у практичній №10.
+Зміни зберегли в комітах [0bdc30a](https://github.com/DenyRun0/CyberLauncher/commit/0bdc30afac3f881f13615bf9475c0e11e4c85655) (моди та збірки) і [225e3a4](https://github.com/DenyRun0/CyberLauncher/commit/225e3a4b6613a55b93ef04c3c141f55e326d4219) (завантаження Java). 
 
-Спільну версію зібрали через [GitHub Actions](https://github.com/DenyRun0/CyberLauncher/actions/runs/45637979290). Запуск лаунчера на Intel Mac перевірили.
+Спільну версію зібрали через [GitHub Actions](https://github.com/DenyRun0/CyberLauncher/actions/runs/45637979290). Запуск лаунчера на Intel Mac та на Windows перевірили.
 
 **Висновок:** отримали робочу версію лаунчера з основними функціями.
 
