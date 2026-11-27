@@ -529,10 +529,10 @@ cmake --build build --config Release
 Користування: вибрати версію та завантажувач, налаштувати RAM, натиснути «Грати» за наявності права користування грою. Для модів перейти до «Моди», знайти сумісний проєкт і встановити. Для збірок — «Збірки», пошук, встановлення та вибір профілю. При проблемах переглянути «Журнал». Java підбирається ядром; автоматичне завантаження передбачене кодом. Дані Windows — `game` поруч з exe; macOS — `~/Library/Application Support/CyberLauncher/game` за README.
 
 
-README і структура перевірені. Реліз v3.1-build-8 опубліковано, CI успішний. [Приклади використання](docs/DEMO.md) та [User Manual](docs/USER_MANUAL.md) підготовлені. Презентацію PowerPoint підготовлено окремим файлом.
+README і структура перевірені. Реліз v3.1-build-8 опубліковано, [User Manual](docs/USER_MANUAL.md) підготовлені. Презентацію PowerPoint підготовлено окремим файлом.
 
 **Висновок:** підготовлено документацію і приклади використання.
 
 ## Джерела
 - [Вихідний код за перевіреним commit](https://github.com/DenyRun0/CyberLauncher/tree/c623fa1b5cf9f2ce8b6c9cd812ca6cafd63373e2).
-- [Ядро](https://github.com/DenyRun0/CyberLauncher/blob/main/core.hpp), [UI](https://github.com/DenyRun0/CyberLauncher/blob/main/mainwindow.cpp), [CMake](https://github.com/DenyRun0/CyberLauncher/blob/main/CMakeLists.txt), [CI][гілки](https://github.com/DenyRun0/CyberLauncher/branches), [Issues](https://github.com/DenyRun0/CyberLauncher/issues), [Pull Requests](https://github.com/DenyRun0/CyberLauncher/pulls).
+- [Ядро](https://github.com/DenyRun0/CyberLauncher/blob/main/core.hpp), (https://github.com/DenyRun0/CyberLauncher/blob/main/mainwindow.cpp), [CMake](https://github.com/DenyRun0/CyberLauncher/blob/main/CMakeLists.txt), [CI][гілки](https://github.com/DenyRun0/CyberLauncher/branches), [Issues](https://github.com/DenyRun0/CyberLauncher/issues), [Pull Requests](https://github.com/DenyRun0/CyberLauncher/pulls).
