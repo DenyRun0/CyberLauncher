@@ -11,8 +11,8 @@
 
 | Учасник | Роль |
 |---|---|
-| [MmykolaKn41](https://github.com/MmykolaKn41) | Тестувальник програмного забезпечення |
-| [oleksiy89](https://github.com/oleksiy89) | Тестувальник програмного забезпечення |
+| [MmykolaKn41](https://github.com/MmykolaKn41) | Тестувальник 2 |
+| [oleksiy89](https://github.com/oleksiy89) | Тестувальник 1 |
 
 **Команда:** CyberLeaks  
 **Проєкт:** CyberLauncher  
